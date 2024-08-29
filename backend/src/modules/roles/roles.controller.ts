@@ -1,46 +1,67 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Delete,
-  Put,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
-import { RolesGuard } from 'src/common/utils/guards/roles.guard';
+import {
+  ApiBearerAuth,
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { Role } from './entities/role.entity';
 
+@ApiBearerAuth()
+@ApiTags('roles')
 @Controller('roles')
-@UseGuards(RolesGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
-  @Post('create')
-  async createRole(@Body() createRoleDto: CreateRoleDto) {
-    return this.rolesService.createRole(createRoleDto);
-  }
-
-  @Get(':id')
-  async getRoleById(@Param('id') id: number) {
-    return this.rolesService.findRoleById(id);
+  @Post()
+  @ApiOperation({ summary: 'Crea un nuevo rol' })
+  @ApiResponse({ status: 201, description: 'Rol creado con éxito.' })
+  @ApiResponse({ status: 409, description: 'El rol ya existe.' })
+  async create(@Body() createRoleDto: CreateRoleDto): Promise<Role> {
+    return this.rolesService.create(createRoleDto);
   }
 
   @Get()
-  async getRoles() {
-    return this.rolesService.findRoles();
+  @ApiOperation({ summary: 'Obtiene todos los roles' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de roles devuelta con éxito.',
+    type: [Role],
+  })
+  async findAll(): Promise<Role[]> {
+    return this.rolesService.findAll();
   }
 
-  @Patch('update')
-  async updateRole(@Body() updateRoleDto: UpdateRoleDto) {
-    return this.rolesService.updateRole(updateRoleDto);
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtiene un rol por su ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Rol devuelto con éxito.',
+    type: Role,
+  })
+  @ApiResponse({ status: 404, description: 'Rol no encontrado.' })
+  async findOne(@Param('id') id: number): Promise<Role> {
+    return this.rolesService.findById(id);
   }
 
   @Delete(':id')
-  async deleteRole(@Param('id') id: number) {
-    return this.rolesService.deleteRole(id);
+  @ApiOperation({ summary: 'Elimina un rol por su ID' })
+  @ApiResponse({ status: 204, description: 'Rol eliminado con éxito.' })
+  @ApiResponse({ status: 404, description: 'Rol no encontrado.' })
+  async delete(@Param('id') id: number): Promise<void> {
+    return this.rolesService.delete(id);
+  }
+
+  @Delete('remove/:id')
+  @ApiOperation({
+    summary:
+      'Elimina un rol (utilizando remove) por su ID, cargando primero el rol',
+  })
+  @ApiResponse({ status: 204, description: 'Rol eliminado con éxito.' })
+  @ApiResponse({ status: 404, description: 'Rol no encontrado.' })
+  async remove(@Param('id') id: string) {
+    await this.rolesService.remove(Number(id));
   }
 }

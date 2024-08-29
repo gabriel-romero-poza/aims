@@ -1,25 +1,36 @@
-import { Role } from 'src/modules/roles/entities/role.entity';
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
+  PrimaryGeneratedColumn,
+  ManyToMany,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany,
   JoinTable,
 } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
+import { Role } from 'src/modules/roles/entities/role.entity';
 
-@Entity('users')
+@Entity()
 export class User {
+  @ApiProperty({ example: 1, description: 'El ID del usuario' })
   @PrimaryGeneratedColumn()
   id: number;
 
+  @ApiProperty({ example: '12345678', description: 'El DNI del usuario' })
   @Column({ unique: true })
   dni: string;
 
+  @ApiProperty({
+    example: 'password123',
+    description: 'La contraseña del usuario',
+  })
   @Column()
   password: string;
 
+  @ApiProperty({
+    type: () => Role,
+    description: 'Los roles asociados al usuario',
+  })
   @ManyToMany(() => Role, (role) => role.users)
   @JoinTable()
   roles: Role[];
