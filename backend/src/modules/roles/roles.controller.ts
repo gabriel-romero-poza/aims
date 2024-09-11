@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import {
@@ -8,8 +16,8 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { Role } from './entities/role.entity';
+import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 
-@ApiBearerAuth()
 @ApiTags('roles')
 @Controller('roles')
 export class RolesController {

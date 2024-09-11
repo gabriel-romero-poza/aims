@@ -10,17 +10,39 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { RolesService } from '../roles/roles.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
+  private readonly saltRounds: number;
+
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly rolesService: RolesService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.saltRounds = parseInt(
+      this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'),
+      10,
+    );
+    console.log('Salt rounds:', this.saltRounds);
+  }
+
+  private async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, this.saltRounds);
+  }
+
+  private async comparePassword(
+    password: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    return bcrypt.compare(password, hashedPassword);
+  }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { roleId, ...userData } = createUserDto;
+    const { roleId, password, ...userData } = createUserDto;
 
     // Verificar si el usuario ya existe
     const existingUser = await this.findByDni(userData.dni, false);
@@ -36,12 +58,26 @@ export class UsersService {
       throw new NotFoundException(`Role with ID ${roleId} not found`);
     }
 
+    // Hash de la contraseña
+    const hashedPassword = await this.hashPassword(password);
+
     // Crear el nuevo usuario
-    const user = this.usersRepository.create(userData);
-    user.roles = [role];
+    const user = this.usersRepository.create({
+      ...userData,
+      password: hashedPassword,
+      roles: [role],
+    });
 
     // Guardar el usuario en la base de datos
     return this.usersRepository.save(user);
+  }
+
+  async validateUserPassword(dni: string, password: string): Promise<User> {
+    const user = await this.findByDni(dni);
+    if (user && (await this.comparePassword(password, user.password))) {
+      return user;
+    }
+    return null;
   }
 
   async findAll(): Promise<User[]> {
@@ -86,6 +122,9 @@ export class UsersService {
     const user = await this.findById(id);
 
     // Actualiza solo los campos proporcionados en el DTO
+    if (updateUserDto.password) {
+      updateUserDto.password = await this.hashPassword(updateUserDto.password);
+    }
     Object.assign(user, updateUserDto);
 
     // Guardar los cambios en la base de datos
@@ -137,7 +176,14 @@ export class UsersService {
         'User must have at least one role after removal',
       );
     }
-
     return this.usersRepository.save(user);
+  }
+
+  async validatePassword(dni: string, plainPassword: string): Promise<boolean> {
+    const user = await this.findByDni(dni);
+    if (!user) {
+      throw new NotFoundException(`User with DNI ${dni} not found`);
+    }
+    return bcrypt.compare(plainPassword, user.password);
   }
 }

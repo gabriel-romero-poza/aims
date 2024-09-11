@@ -8,6 +8,9 @@ import {
   NotFoundException,
   Patch,
   ParseIntPipe,
+  UseGuards,
+  Request,
+  Header,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -18,6 +21,8 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { User } from './entities/user.entity';
 
 @ApiBearerAuth()
 @ApiTags('users')
@@ -25,23 +30,20 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Crea un nuevo usuario' })
-  @ApiResponse({ status: 201, description: 'Usuario creado con éxito.' })
-  @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
-  @ApiResponse({ status: 409, description: 'Conflicto, el usuario ya existe.' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  // Rutas específicas (con parámetros de URL) primero
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  getProfile(@Request() req) {
+    console.log(req.user);
+    return req.user;
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Obtiene todos los usuarios' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de usuarios devuelta con éxito.',
-  })
-  async findAll() {
-    return this.usersService.findAll();
+  @Get('dni/:dni')
+  @ApiOperation({ summary: 'Obtiene un usuario por su DNI' })
+  @ApiResponse({ status: 200, description: 'Usuario devuelto con éxito.' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
+  async findByDni(@Param('dni') dni: string) {
+    return this.usersService.findByDni(dni);
   }
 
   @Get(':id')
@@ -52,12 +54,16 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  @Get('dni/:dni')
-  @ApiOperation({ summary: 'Obtiene un usuario por su DNI' })
-  @ApiResponse({ status: 200, description: 'Usuario devuelto con éxito.' })
+  @Patch(':id')
+  @ApiOperation({ summary: 'Actualiza parcialmente un usuario por su ID' })
+  @ApiResponse({ status: 200, description: 'Usuario actualizado con éxito.' })
+  @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  async findByDni(@Param('dni') dni: string) {
-    return this.usersService.findByDni(dni);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
@@ -79,18 +85,7 @@ export class UsersController {
     await this.usersService.remove(id);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Actualiza parcialmente un usuario por su ID' })
-  @ApiResponse({ status: 200, description: 'Usuario actualizado con éxito.' })
-  @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
-    return this.usersService.update(id, updateUserDto);
-  }
-
+  // Rutas relacionadas con roles de usuarios
   @Post(':userId/roles/:roleId')
   @ApiOperation({ summary: 'Agrega un rol a un usuario' })
   @ApiResponse({
@@ -122,5 +117,25 @@ export class UsersController {
     @Param('roleId', ParseIntPipe) roleId: number,
   ) {
     return this.usersService.removeRoleFromUser(userId, roleId);
+  }
+
+  // Rutas generales (sin parámetros específicos) al final
+  @Get()
+  @ApiOperation({ summary: 'Obtiene todos los usuarios' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de usuarios devuelta con éxito.',
+  })
+  async findAll() {
+    return this.usersService.findAll();
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Crea un nuevo usuario' })
+  @ApiResponse({ status: 201, description: 'Usuario creado con éxito.' })
+  @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
+  @ApiResponse({ status: 409, description: 'Conflicto, el usuario ya existe.' })
+  async create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
   }
 }
