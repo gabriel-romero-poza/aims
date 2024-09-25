@@ -6,6 +6,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    // Permite que se reciban y envien recursos entre diferentes dominios (a revisar en produccion)
+    origin: 'http://localhost:3001', // URL del frontend
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
+
+  // Se utilizan "Pipes" globales, las cuales tranforman y validan los datos(y los tipos de los mismos) que recibe el Backend
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -14,6 +22,7 @@ async function bootstrap() {
     }),
   );
 
+  //Creacion y configuracion de Swagger
   const config = new DocumentBuilder()
     .setTitle('Gestión Escolar API')
     .setDescription(
@@ -26,6 +35,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
+  //Inicializacion del Backend
   await app.listen(3000);
 }
 
