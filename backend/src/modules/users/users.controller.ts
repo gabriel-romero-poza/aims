@@ -31,7 +31,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // Rutas específicas (con parámetros de URL) primero
-  @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req) {
     console.log(req.user);
@@ -44,17 +43,6 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
   async findByDni(@Param('dni') dni: string) {
     return this.usersService.findByDni(dni);
-  }
-
-  @Delete('remove/:id')
-  @ApiOperation({
-    summary:
-      'Elimina un usuario por su ID (remove), cargando primero el usuario',
-  })
-  @ApiResponse({ status: 204, description: 'Usuario eliminado con éxito.' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    await this.usersService.remove(id);
   }
 
   @Get(':id')

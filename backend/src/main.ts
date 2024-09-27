@@ -1,10 +1,14 @@
-import { APP_GUARD, NestFactory } from '@nestjs/core';
+import { APP_GUARD, NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.setGlobalPrefix('api');
+  app.useGlobalGuards(new JwtAuthGuard(app.get(Reflector)));
 
   app.enableCors({
     // Permite que se reciban y envien recursos entre diferentes dominios (a revisar en produccion)

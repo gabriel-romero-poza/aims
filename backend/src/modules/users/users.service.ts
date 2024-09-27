@@ -27,13 +27,14 @@ export class UsersService {
       this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10'),
       10,
     );
-    console.log('Salt rounds:', this.saltRounds);
   }
 
+  // Hashea una contraseña en texto plano
   private async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, this.saltRounds);
   }
 
+  // Compara una contraseña en texto plano con una contraseña hasheada
   private async comparePassword(
     password: string,
     hashedPassword: string,
@@ -41,49 +42,46 @@ export class UsersService {
     return bcrypt.compare(password, hashedPassword);
   }
 
+  // Crea un nuevo usuario
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { roleId, password, ...userData } = createUserDto;
-
-    // Verificar si el usuario ya existe
     const existingUser = await this.findByDni(userData.dni, false);
     if (existingUser) {
       throw new ConflictException(
         `User with DNI ${userData.dni} already exists`,
       );
     }
-
-    // Buscar el rol en la base de datos usando el roleId proporcionado
     const role = await this.rolesService.findById(roleId);
     if (!role) {
       throw new NotFoundException(`Role with ID ${roleId} not found`);
     }
-
-    // Hash de la contraseña
     const hashedPassword = await this.hashPassword(password);
-
-    // Crear el nuevo usuario
     const user = this.usersRepository.create({
       ...userData,
       password: hashedPassword,
       roles: [role],
     });
-
-    // Guardar el usuario en la base de datos
     return this.usersRepository.save(user);
   }
 
-  async validateUserPassword(dni: string, password: string): Promise<User> {
-    const user = await this.findByDni(dni);
+  // Valida la contraseña de un usuario durante la autenticación
+  async validateUserPassword(
+    dni: string,
+    password: string,
+  ): Promise<User | null> {
+    const user = await this.findByDni(dni, false);
     if (user && (await this.comparePassword(password, user.password))) {
       return user;
     }
     return null;
   }
 
+  // Encuentra y devuelve todos los usuarios con sus roles
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({ relations: ['roles'] });
   }
 
+  // Encuentra un usuario por ID
   async findById(id: number, throwError = true): Promise<User | null> {
     const user = await this.usersRepository.findOne({
       where: { id },
@@ -95,6 +93,7 @@ export class UsersService {
     return user || null;
   }
 
+  // Encuentra un usuario por su DNI
   async findByDni(dni: string, throwError = true): Promise<User | null> {
     const user = await this.usersRepository.findOne({
       where: { dni },
@@ -106,6 +105,7 @@ export class UsersService {
     return user || null;
   }
 
+  // Elimina un usuario por ID
   async delete(userId: number): Promise<void> {
     const result = await this.usersRepository.delete(userId);
     if (result.affected === 0) {
@@ -113,77 +113,45 @@ export class UsersService {
     }
   }
 
-  async remove(userId: number): Promise<void> {
-    const user = await this.findById(userId);
-    await this.usersRepository.remove(user);
-  }
-
+  // Actualiza los datos de un usuario existente
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
-
-    // Actualiza solo los campos proporcionados en el DTO
     if (updateUserDto.password) {
       updateUserDto.password = await this.hashPassword(updateUserDto.password);
     }
     Object.assign(user, updateUserDto);
-
-    // Guardar los cambios en la base de datos
     return this.usersRepository.save(user);
   }
 
+  // Agrega un rol a un usuario
   async addRoleToUser(userId: number, roleId: number): Promise<User> {
     const user = await this.findById(userId);
-
-    // Buscar el rol en la base de datos
     const role = await this.rolesService.findById(roleId);
     if (!role) {
       throw new NotFoundException(`Role with ID ${roleId} not found`);
     }
-
-    // Verificar si el usuario ya tiene ese rol
     if (user.roles.some((userRole) => userRole.id === roleId)) {
       throw new ConflictException(`User already has role with ID ${roleId}`);
     }
-
-    // Agregar el rol al usuario y guardar los cambios
     user.roles.push(role);
     return this.usersRepository.save(user);
   }
 
+  // Elimina un rol de un usuario
   async removeRoleFromUser(userId: number, roleId: number): Promise<User> {
     const user = await this.findById(userId);
-
-    // Buscar el rol en la base de datos
-    const role = await this.rolesService.findById(roleId);
-    if (!role) {
-      throw new NotFoundException(`Role with ID ${roleId} not found`);
-    }
-
-    // Verificar si el usuario tiene ese rol
     const roleIndex = user.roles.findIndex(
       (userRole) => userRole.id === roleId,
     );
     if (roleIndex === -1) {
       throw new NotFoundException(`User does not have role with ID ${roleId}`);
     }
-
-    // Eliminar el rol del usuario y guardar los cambios
     user.roles.splice(roleIndex, 1);
-
-    // Verificar que al menos un rol permanezca en el usuario
     if (user.roles.length === 0) {
       throw new ConflictException(
         'User must have at least one role after removal',
       );
     }
     return this.usersRepository.save(user);
-  }
-
-  async validatePassword(dni: string, plainPassword: string): Promise<boolean> {
-    const user = await this.findByDni(dni);
-    if (!user) {
-      throw new NotFoundException(`User with DNI ${dni} not found`);
-    }
-    return bcrypt.compare(plainPassword, user.password);
   }
 }
