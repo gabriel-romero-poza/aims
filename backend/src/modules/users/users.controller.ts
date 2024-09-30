@@ -5,12 +5,9 @@ import {
   Body,
   Param,
   Delete,
-  NotFoundException,
   Patch,
   ParseIntPipe,
-  UseGuards,
   Request,
-  Header,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,8 +18,6 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { User } from './entities/user.entity';
 
 @ApiBearerAuth()
 @ApiTags('users')
@@ -42,7 +37,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Usuario devuelto con éxito.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
   async findByDni(@Param('dni') dni: string) {
-    return this.usersService.findByDni(dni);
+    return this.usersService.findByDni(dni, true);
   }
 
   @Get(':id')
@@ -50,7 +45,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Usuario devuelto con éxito.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findById(id);
+    return this.usersService.findById(id, true);
   }
 
   @Patch(':id')

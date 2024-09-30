@@ -1,28 +1,23 @@
-import {
-  ExecutionContext,
-  Injectable,
-  CanActivate,
-  Logger,
-} from '@nestjs/common';
+import { ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
+export class JwtAuthGuard extends AuthGuard('jwt') {
   private readonly logger = new Logger(JwtAuthGuard.name);
 
   constructor(private reflector: Reflector) {
-    super(); // Se crea el constructor del authguard
+    super(); // Initializes the base AuthGuard
   }
 
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
-    const { method, url } = request; // Se extren los datos para hacer el Log
+    const { method, url } = request; // Extract method and URL for logging
 
-    // Verifica si el handler o la clase es publico
+    // Check if the route is public
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
       context.getHandler(),
       context.getClass(),
@@ -30,16 +25,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
 
     if (isPublic) {
       this.logger.log(`Access granted: [${method}] ${url} - Public route`);
-      return true; // Permite el acceso a la ruta publica sin necesidad de autenticación
+      return true; // Allow access to public routes without authentication
     }
 
-    // Recupera los roles si hay, para controlar el acceso basado en roles
+    // Retrieve roles if any, to enforce role-based access control
     const roles = this.reflector.get<string[]>('roles', context.getHandler());
 
     if (roles) {
       const user = request.user;
 
-      // Checkea si los roles del usuario incluyen al menos uno de los roles requeridos
+      // Check if the user's roles include at least one of the required roles
       const hasRole =
         user && user.roles.some((role: string) => roles.includes(role));
 
@@ -47,10 +42,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
         this.logger.warn(
           `Access denied: [${method}] ${url} - Missing required roles: ${roles}`,
         );
-        return false; // Deniega el accesso si los roles no coinciden
+        return false; // Deny access if roles do not match
       }
     }
 
-    return super.canActivate(context); // Procede con la autenticación por defecto
+    // Proceed with the default JWT authentication
+    return super.canActivate(context);
   }
 }

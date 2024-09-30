@@ -45,7 +45,7 @@ export class UsersService {
   // Crea un nuevo usuario
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { roleId, password, ...userData } = createUserDto;
-    const existingUser = await this.findByDni(userData.dni, false);
+    const existingUser = await this.findByDni(userData.dni);
     if (existingUser) {
       throw new ConflictException(
         `User with DNI ${userData.dni} already exists`,
@@ -69,7 +69,7 @@ export class UsersService {
     dni: string,
     password: string,
   ): Promise<User | null> {
-    const user = await this.findByDni(dni, false);
+    const user = await this.findByDni(dni);
     if (user && (await this.comparePassword(password, user.password))) {
       return user;
     }
@@ -82,7 +82,7 @@ export class UsersService {
   }
 
   // Encuentra un usuario por ID
-  async findById(id: number, throwError = true): Promise<User | null> {
+  async findById(id: number, throwError = false): Promise<User | null> {
     const user = await this.usersRepository.findOne({
       where: { id },
       relations: ['roles'],
@@ -94,7 +94,7 @@ export class UsersService {
   }
 
   // Encuentra un usuario por su DNI
-  async findByDni(dni: string, throwError = true): Promise<User | null> {
+  async findByDni(dni: string, throwError = false): Promise<User | null> {
     const user = await this.usersRepository.findOne({
       where: { dni },
       relations: ['roles'],

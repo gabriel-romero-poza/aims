@@ -6,47 +6,71 @@ import PasswordInput from "./PasswordInput";
 import { CheckBox } from "./CheckBox";
 import { Button } from "./Button";
 
+interface FormState {
+  dni: string;
+  password: string;
+}
+
 export const Login = () => {
-  const [dni, setDni] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [form, setForm] = useState<FormState>({ dni: "", password: "" });
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForm((prevForm) => ({
+      ...prevForm,
+      [name]: value,
+    }));
+  };
+
+  const setError = (message: string) => {
+    setErrorMessage(message);
+  };
+
+  const validateForm = (): boolean => {
+    if (!form.dni || !form.password) {
+      setError("Por favor, complete todos los campos.");
+      return false;
+    }
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage("");
+    setError("");
+
+    if (!validateForm()) {
+      return;
+    }
 
     try {
-      const response = await fetch(`http://localhost:3000/auth/login`, {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          dni,
-          password,
-        }),
+        credentials: "include", // Include cookies in the request
+        body: JSON.stringify(form),
       });
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        throw new Error("Unexpected response format. Please try again.");
+      }
+
       if (!response.ok) {
-        // Muestra el error que viene del servidor, si está disponible
         const errorData = await response.json();
-        const error = errorData?.message || "Error al iniciar sesión";
-        throw new Error(error);
+        throw new Error(errorData?.message || "Error al iniciar sesión");
       }
 
-      const data = await response.json();
-
-      const token = data.accessToken;
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("token", token);
-      } else {
-        console.warn("LocalStorage no está disponible en este entorno.");
-      }
-
-      console.log("Inicio de sesión exitoso, token:", token);
+      // No need to handle the token here since it will be set in cookies by the backend
+      console.log("Inicio de sesión exitoso.");
     } catch (error: any) {
-      setErrorMessage(error.message || "Ocurrió un error inesperado.");
+      setError(
+        error instanceof SyntaxError
+          ? "Error al procesar la respuesta del servidor."
+          : error.message || "Ocurrió un error inesperado."
+      );
     }
   };
 
@@ -57,24 +81,10 @@ export const Login = () => {
       </h2>
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-4">
-          <div>
-            <DNIInput value={dni} onChange={(e) => setDni(e.target.value)} />
-          </div>
-
-          <div className="mt-4">
-            <PasswordInput
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <CheckBox text="Recordar mi sesión" />
-          </div>
-
-          <div>
-            <Button text="Iniciar Sesión" />
-          </div>
+          <DNIInput value={form.dni} onChange={handleChange} />
+          <PasswordInput value={form.password} onChange={handleChange} />
+          <CheckBox text="Recordar mi sesión" />
+          <Button text="Iniciar Sesión" />
         </div>
         {errorMessage && (
           <p className="text-red-500 text-center mt-4">{errorMessage}</p>

@@ -13,19 +13,49 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(dni: string, password: string): Promise<User> {
-    const user = await this.usersService.findByDni(dni, false);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      return user;
+  async validateUser(dni: string, pass: string): Promise<any> {
+    this.logger.debug(`Validating user with DNI: ${dni}`);
+    const user = await this.usersService.findByDni(dni);
+    if (!user) {
+      this.logger.warn(`User nigg with DNI ${dni} not found.`);
+      throw new UnauthorizedException('Credenciales inválidas');
     }
-    this.logger.warn(`Invalid credentials for DNI: ${dni}`);
-    throw new UnauthorizedException('Invalid credentials');
+
+    const isPasswordValid = await bcrypt.compare(pass, user.password);
+    if (!isPasswordValid) {
+      this.logger.warn(`Invalid password for DNI: ${dni}`);
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const { password, ...result } = user;
+    this.logger.debug(`User ${dni} validated successfully.`);
+    return result;
   }
 
-  async login(user: User): Promise<{ accessToken: string }> {
-    const payload = { username: user.dni, sub: user.id };
-    return {
-      accessToken: this.jwtService.sign(payload),
-    };
+  async login(user: User) {
+    const payload = { sub: user.id, roles: user.roles };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: process.env.ACCESS_TOKEN_SECRET,
+      expiresIn: '15m',
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.REFRESH_TOKEN_SECRET,
+      expiresIn: '7d',
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  verifyRefreshToken(token: string) {
+    try {
+      return this.jwtService.verify(token, {
+        secret: process.env.REFRESH_TOKEN_SECRET,
+      });
+    } catch (error) {
+      this.logger.warn('Invalid refresh token');
+      throw new UnauthorizedException('Refresh token inválido');
+    }
   }
 }
