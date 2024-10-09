@@ -1,8 +1,10 @@
+// auth.service.ts
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -10,14 +12,15 @@ export class AuthService {
 
   constructor(
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
+    private readonly jwtService: JwtService, // Instancia predeterminada
+    private readonly configService: ConfigService,
   ) {}
 
-  async validateUser(dni: string, pass: string): Promise<any> {
+  async validateUser(dni: string, pass: string): Promise<User> {
     this.logger.debug(`Validating user with DNI: ${dni}`);
     const user = await this.usersService.findByDni(dni);
     if (!user) {
-      this.logger.warn(`User nigg with DNI ${dni} not found.`);
+      this.logger.warn(`User with DNI ${dni} not found.`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -26,32 +29,35 @@ export class AuthService {
       this.logger.warn(`Invalid password for DNI: ${dni}`);
       throw new UnauthorizedException('Credenciales inválidas');
     }
-
-    const { password, ...result } = user;
     this.logger.debug(`User ${dni} validated successfully.`);
-    return result;
+    return user;
   }
 
   async login(user: User) {
     const payload = { sub: user.id, roles: user.roles };
 
-    const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.ACCESS_TOKEN_SECRET,
-      expiresIn: '15m',
-    });
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.REFRESH_TOKEN_SECRET,
-      expiresIn: '7d',
-    });
+    const accessToken = this.generateAccessToken(payload);
+    const refreshToken = this.generateRefreshToken(payload);
 
     return { accessToken, refreshToken };
+  }
+
+  generateAccessToken(payload: any): string {
+    return this.jwtService.sign(payload); // Usa configuración predeterminada
+  }
+
+  generateRefreshToken(payload: any): string {
+    return this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
+      expiresIn:
+        this.configService.get<string>('REFRESH_TOKEN_EXPIRATION') || '7d',
+    });
   }
 
   verifyRefreshToken(token: string) {
     try {
       return this.jwtService.verify(token, {
-        secret: process.env.REFRESH_TOKEN_SECRET,
+        secret: this.configService.get<string>('REFRESH_TOKEN_SECRET'),
       });
     } catch (error) {
       this.logger.warn('Invalid refresh token');

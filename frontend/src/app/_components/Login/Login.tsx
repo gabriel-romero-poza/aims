@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
 import DNIInput from "./DNIInput";
 import PasswordInput from "./PasswordInput";
 import { CheckBox } from "./CheckBox";
@@ -44,27 +45,26 @@ export const Login = () => {
     }
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Include cookies in the request
-        body: JSON.stringify(form),
-      });
+      const response = await axios.post(
+        "http://localhost:3000/api/auth/login",
+        {
+          dni: form.dni,
+          password: form.password,
+        }
+      );
 
-      const contentType = response.headers.get("content-type");
+      const contentType = response.headers["content-type"];
       if (!contentType?.includes("application/json")) {
         throw new Error("Unexpected response format. Please try again.");
       }
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (response.status !== 200) {
+        const errorData = response.data;
         throw new Error(errorData?.message || "Error al iniciar sesión");
       }
 
-      // No need to handle the token here since it will be set in cookies by the backend
       console.log("Inicio de sesión exitoso.");
+      // TODO: redirigir al usuario o realizar otras acciones tras un inicio de sesión exitoso
     } catch (error: any) {
       setError(
         error instanceof SyntaxError

@@ -1,6 +1,6 @@
 "use client";
 
-import { Login } from "./components/Login";
+import Login from "./_components/Login/Login";
 
 export default function App() {
   return (
