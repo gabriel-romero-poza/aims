@@ -11,8 +11,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalGuards(new JwtAuthGuard(app.get(Reflector)));
 
-  app.use(cookieParser());
-
   app.enableCors({
     // Permite que se reciban y envien recursos entre diferentes dominios (a revisar en produccion)
     origin: 'http://localhost:3001', // URL del frontend
@@ -41,6 +39,8 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
+
+  app.use(cookieParser());
 
   //Inicializacion del Backend
   await app.listen(3000);
